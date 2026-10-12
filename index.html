@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YG Contextual CV Screening Intelligence™ — Aplikasi Penyaringan Kandidat</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1e2433; --muted:#6b7280; --line:#e3e7ef;
+    --brand:#3949ab; --brand2:#1e2a78; --ok:#2e7d32; --warn:#b45309; --bad:#b91c1c; --soft:#eef1fa;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); font-size:14px;}
+  header{background:linear-gradient(120deg,var(--brand2),var(--brand)); color:#fff; padding:18px 28px;}
+  header h1{font-size:19px; letter-spacing:.3px;}
+  header p{font-size:12.5px; opacity:.85; margin-top:4px;}
+  .wrap{max-width:1180px; margin:0 auto; padding:20px;}
+  nav.tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px;}
+  nav.tabs button{border:1px solid var(--line); background:#fff; padding:9px 16px; border-radius:8px 8px 0 0; cursor:pointer; font-weight:600; color:var(--muted); font-size:13px;}
+  nav.tabs button.active{background:var(--brand); color:#fff; border-color:var(--brand);}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-bottom:16px;}
+  h2{font-size:16px; margin-bottom:10px; color:var(--brand2);}
+  h3{font-size:14px; margin:14px 0 8px;}
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin:8px 0 3px;}
+  input[type=text],input[type=number],textarea,select{width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13.5px; background:#fff;}
+  textarea{min-height:70px; resize:vertical;}
+  .row{display:flex; gap:12px; flex-wrap:wrap;}
+  .row > div{flex:1; min-width:180px;}
+  table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;}
+  th,td{border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top;}
+  th{background:var(--soft); font-size:12px; color:var(--brand2);}
+  .btn{border:none; border-radius:7px; padding:8px 14px; cursor:pointer; font-weight:600; font-size:13px; background:var(--brand); color:#fff;}
+  .btn:hover{background:var(--brand2);}
+  .btn.sec{background:#e5e9f5; color:var(--brand2);}
+  .btn.sec:hover{background:#d5dbef;}
+  .btn.dgr{background:#fde8e8; color:var(--bad);}
+  .btn.ok{background:var(--ok); color:#fff;}
+  .btn.sm{padding:4px 9px; font-size:12px;}
+  .muted{color:var(--muted); font-size:12.5px;}
+  .pill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;}
+  .p-ok{background:#e6f4ea; color:var(--ok);} .p-warn{background:#fdf1e3; color:var(--warn);} .p-bad{background:#fde8e8; color:var(--bad);} .p-info{background:var(--soft); color:var(--brand2);}
+  .cand-item{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:#fff;}
+  .cand-item.sel{border-color:var(--brand); background:var(--soft);}
+  .score-total{font-size:26px; font-weight:800; color:var(--brand2);}
+  .chk{display:flex; gap:8px; align-items:flex-start; margin:5px 0; font-size:13px;}
+  .chk input{margin-top:2px;}
+  .hidden{display:none !important;}
+  .grid2{display:grid; grid-template-columns:280px 1fr; gap:16px;}
+  @media(max-width:880px){.grid2{grid-template-columns:1fr;}}
+  .dim-box{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:10px; background:#fbfcff;}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
+  .note{background:#fffbe8; border:1px solid #f2e3a0; border-radius:8px; padding:9px 12px; font-size:12.5px; color:#7a5d00; margin:8px 0;}
+  #printArea{display:none;}
+  @media print{
+    body{background:#fff;}
+    header,nav.tabs,.no-print,#tabContent{display:none !important;}
+    #printArea{display:block !important; font-size:12px;}
+    #printArea h1{font-size:17px;} #printArea h2{font-size:14px; margin-top:14px;}
+    #printArea table{font-size:11px;}
+    .card{box-shadow:none;}
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+<header>
+  <h1>YG Contextual CV Screening Intelligence™</h1>
+  <p>Aplikasi Pendukung Keputusan Penyaringan Kandidat — Berbasis Bukti, Kompetensi Transferable, dan Anti False-Negative. Data tersimpan lokal di browser (offline).</p>
+</header>
+
+<div class="wrap">
+<nav class="tabs no-print">
+  <button id="tb1" class="active" onclick="setTab(1)">1. Pengaturan Jabatan</button>
+  <button id="tb2" onclick="setTab(2)">2. Data Kandidat</button>
+  <button id="tb3" onclick="setTab(3)">3. Penilaian</button>
+  <button id="tb4" onclick="setTab(4)">4. Hasil &amp; Laporan</button>
+</nav>
+
+<div id="tabContent"></div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+/* ================= DATA MODEL ================= */
+const DIMS = [
+ {key:'f',     label:'Pengalaman Fungsional Relevan',        w:25, desc:'Bukti tanggung jawab langsung yang relevan dengan peran target.'},
+ {key:'t',     label:'Kompetensi Transferable',              w:20, desc:'Kemampuan dari konteks/jabatan/industri lain yang relevan secara fungsional.'},
+ {key:'tech',  label:'Kemampuan Teknis & Spesifik Pekerjaan',w:20, desc:'Keterampilan teknis inti yang dibutuhkan peran (mis. inventaris, kasir, analisa penjualan).'},
+ {key:'ach',   label:'Bukti Pencapaian & Eksekusi',          w:15, desc:'Hasil terukur atau bukti penyelesaian tugas yang didokumentasikan.'},
+ {key:'scope', label:'Cakupan Tanggung Jawab & Pemecahan Masalah', w:10, desc:'Tingkat kompleksitas, akuntabilitas, dan pengambilan keputusan.'},
+ {key:'learn', label:'Agilitas Belajar & Adaptabilitas',     w:10, desc:'Bukti adaptasi, peningkatan tanggung jawab, transisi peran.'}
+];
+const REQ_STATUS = ['MEMENUHI','PERLU VERIFIKASI','TIDAK TEREKAM','TERKONFIRASI TIDAK MEMENUHI','N/A'];
+const AUDIT_ITEMS = [
+ 'Apakah saya menolak kandidat karena istilah/judul jabatan, bukan substansi?',
+ 'Apakah saya memberi nilai berlebihan karena CV terdengar mengesankan?',
+ 'Apakah saya menganggap tahun pengalaman = kualitas pengalaman?',
+ 'Apakah saya menganggap judul jabatan sebagai bukti kompetensi?',
+ 'Apakah saya memperlakukan informasi yang tidak ada sebagai bukti negatif?',
+ 'Apakah saya melewatkan keterampilan transferable yang relevan?',
+ 'Apakah kesan subjektif terlalu berpengaruh pada penilaian?',
+ 'Apakah standar yang sama diterapkan pada semua kandidat?',
+ 'Apakah kegagalan membaca dokumen saya perlakukan sebagai kegagalan kualifikasi?',
+ 'Apakah skor tinggi mengesampingkan persyaratan wajib?'
+];
+const LS_KEY='yg_cvs_app_v1';
+
+let state = {
+  job:{title:'',purpose:'',reqs:[],weights:{}},
+  cands:[],
+  ui:{tab:1,sel:0}
+};
+DIMS.forEach(d=>state.job.weights[d.key]=d.w);
+
+function uid(){return Math.random().toString(36).slice(2,9);}
+function save(){localStorage.setItem(LS_KEY, JSON.stringify(state));}
+function load(){
+  try{const s=localStorage.getItem(LS_KEY); if(s){const p=JSON.parse(s);
+    state.job=Object.assign({title:'',purpose:'',reqs:[],weights:{}},p.job||{});
+    DIMS.forEach(d=>{if(state.job.weights[d.key]==null)state.job.weights[d.key]=d.w;});
+    state.cands=p.cands||[]; state.ui=Object.assign({tab:1,sel:0},p.ui||{});}}catch(e){}
+}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function bandOf(s){ if(s>=80)return['Prioritas Tinggi','p-ok']; if(s>=65)return['Wawancara Validasi','p-info']; if(s>=50)return['Kandidat Kondisional','p-warn']; return['Prioritas Rendah','p-bad']; }
+
+/* ================= NAV / RENDER ================= */
+function setTab(n){state.ui.tab=n; save(); render();}
+function render(){
+  [1,2,3,4].forEach(i=>document.getElementById('tb'+i).classList.toggle('active', state.ui.tab===i));
+  const c=document.getElementById('tabContent');
+  if(state.ui.tab===1)c.innerHTML=viewJob();
+  else if(state.ui.tab===2)c.innerHTML=viewCands();
+  else if(state.ui.tab===3)c.innerHTML=viewAssess();
+  else c.innerHTML=viewResults();
+}
+
+/* ============ TAB 1: JOB SETUP ============ */
+function viewJob(){
+  const j=state.job;
+  let sum=0; DIMS.forEach(d=>sum+=Number(j.weights[d.key])||0);
+  const reqRow=(r,i,mand)=>`<tr>
+    <td><input type="text" value="${esc(r.text)}" onchange="updReq(${i},'text',this.value)" placeholder="Tuliskan kualifikasi..."></td>
+    <td><select onchange="updReq(${i},'cat',this.value)">
+      ${['Pendidikan','Usia','Pengalaman','Keterampilan Teknis','Kepemimpinan','Lainnya'].map(c=>`<option ${r.cat===c?'selected':''}>${c}</option>`).join('')}
+    </select></td>
+    <td><button class="btn dgr sm" onclick="delReq(${i})">Hapus</button></td></tr>`;
+  const wajib=j.reqs.map((r,i)=>r.mand?reqRow(r,i,true):'').join('');
+  const pref=j.reqs.map((r,i)=>!r.mand?reqRow(r,i,false):'').join('');
+  const wRows=DIMS.map(d=>`<tr><td>${d.label}</td><td style="width:110px"><input type="number" min="0" max="100" value="${j.weights[d.key]}" onchange="updW('${d.key}',this.value)"></td><td class="muted">${d.desc}</td></tr>`).join('');
+  return `
+  <div class="card">
+    <h2>Pengaturan Jabatan — Diisi Manual</h2>
+    <div class="row">
+      <div><label>Nama Posisi</label><input type="text" value="${esc(j.title)}" onchange="updJob('title',this.value)" placeholder="mis. Kepala Toko"></div>
+      <div><label>Tujuan Peran / Ringkasan</label><input type="text" value="${esc(j.purpose)}" onchange="updJob('purpose',this.value)" placeholder="Tujuan utama peran ini"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Kualifikasi WAJIB (Syarat Non-Negotiable)</h2>
+    <table><thead><tr><th style="width:55%">Kualifikasi</th><th>Kategori</th><th></th></tr></thead><tbody id="wajibBody">${wajib||'<tr><td colspan="3" class="muted">Belum ada kualifikasi wajib. Tambahkan di bawah.</td></tr>'}</tbody></table>
+    <div class="toolbar"><button class="btn sec" onclick="addReq(true)">+ Tambah Kualifikasi Wajib</button></div>
+    <div class="note">Kualifikasi wajib menjadi <b>gerbang penilaian</b>: status "TERKONFIRASI TIDAK MEMENUHI" akan menggagalkan kandidat terlepas dari skor.</div>
+  </div>
+  <div class="card">
+    <h2>Kualifikasi PREFERENSI (Nilai Tambah)</h2>
+    <table><thead><tr><th style="width:55%">Kualifikasi</th><th>Kategori</th><th></th></tr></thead><tbody>${pref||'<tr><td colspan="3" class="muted">Belum ada kualifikasi preferensi.</td></tr>'}</tbody></table>
+    <div class="toolbar"><button class="btn sec" onclick="addReq(false)">+ Tambah Kualifikasi Preferensi</button></div>
+  </div>
+  <div class="card">
+    <h2>Bobot Penilaian (total saat ini: <span id="wSum" style="color:${sum===100?'var(--ok)':'var(--bad)'}">${sum}</span> / 100)</h2>
+    ${sum!==100?'<div class="note">Total bobot bukan 100 — penilaian akan dinormalisasi secara proporsional, tetapi disarankan menyesuaikan agar total = 100.</div>':''}
+    <table><thead><tr><th>Dimensi</th><th>Bobot</th><th>Deskripsi</th></tr></thead><tbody>${wRows}</tbody></table>
+  </div>
+  <div class="toolbar no-print">
+    <button class="btn ok" onclick="save();alert('Tersimpan.')">Simpan</button>
+    <button class="btn sec" onclick="loadExample()">Muat Contoh (Kepala Toko Pelangi)</button>
+    <button class="btn dgr" onclick="if(confirm('Reset SEMUA data?')){localStorage.removeItem(LS_KEY);location.reload();}">Reset Semua</button>
+  </div>`;
+}
+function updJob(f,v){state.job[f]=v; save();}
+function addReq(mand){state.job.reqs.push({id:uid(),text:'',cat:'Lainnya',mand}); save(); render();}
+function delReq(i){state.job.reqs.splice(i,1); save(); render();}
+function updReq(i,f,v){state.job.reqs[i][f]=v; save();}
+function updW(k,v){state.job.weights[k]=Math.max(0,Math.min(100,Number(v)||0)); save(); render();}
+function loadExample(){
+  state.job.title='Kepala Toko — Pelangi Furniture & Homeware';
+  state.job.purpose='Memimpin cabang retail mebel & peralatan rumah tangga: inventaris, target penjualan, tim, dan layanan pelanggan.';
+  state.job.reqs=[
+    {id:uid(),text:'Pendidikan minimal D3/S1',cat:'Pendidikan',mand:true},
+    {id:uid(),text:'Usia maksimal 35 tahun',cat:'Usia',mand:true},
+    {id:uid(),text:'Pengalaman sebagai kepala toko / asisten kepala toko minimal 2 tahun (atau lingkup setara — verifikasi substansi)',cat:'Pengalaman',mand:true},
+    {id:uid(),text:'Menguasai manajemen inventaris & stok',cat:'Keterampilan Teknis',mand:true},
+    {id:uid(),text:'Menganalisa data penjualan & mengeksekusi promosi untuk mencapai target',cat:'Keterampilan Teknis',mand:true},
+    {id:uid(),text:'Mengoperasikan sistem kasir & memeriksa laporan keuangan',cat:'Keterampilan Teknis',mand:true},
+    {id:uid(),text:'Tata letak toko & display produk untuk meningkatkan penjualan',cat:'Keterampilan Teknis',mand:false},
+    {id:uid(),text:'Memimpin tim: motivasi, penjadwalan, penilaian kinerja',cat:'Kepemimpinan',mand:true},
+    {id:uid(),text:'Komunikasi persuasif & penanganan komplain pelanggan',cat:'Keterampilan Teknis',mand:true},
+    {id:uid(),text:'Pengambilan keputusan cepat untuk masalah tidak terduga di toko',cat:'Lainnya',mand:false},
+    {id:uid(),text:'Jujur, teliti, tegas, bertanggung jawab',cat:'Lainnya',mand:false}
+  ];
+  save(); render();
+}
+
+/* ============ TAB 2: CANDIDATES ============ */
+function viewCands(){
+  const list=state.cands.map((c,i)=>`<div class="cand-item ${state.ui.sel===i?'sel':''}" onclick="selCand(${i})">
+      <div><b>${esc(c.name)||'(tanpa nama)'}</b><div class="muted">${esc(c.edu)}${c.age?' · '+esc(c.age)+' th':''}</div></div>
+      <button class="btn dgr sm" onclick="event.stopPropagation();delCand(${i})">Hapus</button></div>`).join('');
+  const c=state.cands[state.ui.sel];
+  if(!c)return `<div class="card"><div class="toolbar"><button class="btn" onclick="addCand()">+ Tambah Kandidat</button></div><p class="muted">Belum ada kandidat.</p></div>`;
+  const exps=c.exps.map((e,j)=>`<tr>
+    <td><input type="text" value="${esc(e.title)}" onchange="updExp(${j},'title',this.value)" placeholder="Jabatan"></td>
+    <td><input type="text" value="${esc(e.co)}" onchange="updExp(${j},'co',this.value)" placeholder="Perusahaan"></td>
+    <td style="width:130px"><input type="text" value="${esc(e.per)}" onchange="updExp(${j},'per',this.value)" placeholder="mis. 2022–2024"></td>
+    <td><textarea onchange="updExp(${j},'duty',this.value)" placeholder="Tanggung jawab utama...">${esc(e.duty)}</textarea></td>
+    <td><button class="btn dgr sm" onclick="delExp(${j})">X</button></td></tr>`).join('');
+  return `<div class="grid2">
+    <div>
+      <div class="toolbar"><button class="btn" onclick="addCand()">+ Tambah Kandidat</button></div>
+      ${list}
+    </div>
+    <div>
+      <div class="card">
+        <h2>Profil Kandidat</h2>
+        <div class="row">
+          <div><label>Nama</label><input type="text" value="${esc(c.name)}" onchange="updCand('name',this.value)"></div>
+          <div><label>Usia (th)</label><input type="number" value="${esc(c.age)}" onchange="updCand('age',this.value)"></div>
+          <div><label>Pendidikan Terakhir</label><input type="text" value="${esc(c.edu)}" onchange="updCand('edu',this.value)" placeholder="mis. S1 Manajemen"></div>
+        </div>
+        <label>Tempel teks CV (opsional, untuk referensi penilai)</label>
+        <textarea style="min-height:110px" onchange="updCand('cv',this.value)" placeholder="Salin-tempel isi CV di sini...">${esc(c.cv)}</textarea>
+      </div>
+      <div class="card">
+        <h2>Riwayat Pekerjaan</h2>
+        <table><thead><tr><th>Jabatan</th><th>Perusahaan</th><th>Periode</th><th>Tanggung Jawab / Pencapaian</th><th></th></tr></thead>
+        <tbody>${exps||'<tr><td colspan="5" class="muted">Belum ada pengalaman.</td></tr>'}</tbody></table>
+        <div class="toolbar"><button class="btn sec" onclick="addExp()">+ Tambah Pengalaman</button></div>
+      </div>
+      <div class="card">
+        <h2>Keterampilan & Catatan Tambahan</h2>
+        <label>Keterampilan yang diklaim</label>
+        <textarea onchange="updCand('skills',this.value)" placeholder="mis. manajemen stok, Excel, penjadwalan tim...">${esc(c.skills)}</textarea>
+        <label>Catatan penilai (kekuatan, risiko, gap yang terlihat)</label>
+        <textarea onchange="updCand('notes',this.value)">${esc(c.notes)}</textarea>
+      </div>
+    </div>
+  </div>`;
+}
+function blankCand(){return{id:uid(),name:'',age:'',edu:'',cv:'',skills:'',notes:'',exps:[],scores:{},justs:{},reqs:{},confidence:'',uncert:'',audit:{},interview:''};}
+function addCand(){state.cands.push(blankCand()); state.ui.sel=state.cands.length-1; save(); render();}
+function delCand(i){if(confirm('Hapus kandidat ini?')){state.cands.splice(i,1); state.ui.sel=Math.max(0,state.ui.sel-1); save(); render();}}
+function selCand(i){state.ui.sel=i; save(); render();}
+function updCand(f,v){state.cands[state.ui.sel][f]=v; save();}
+function addExp(){state.cands[state.ui.sel].exps.push({title:'',co:'',per:'',duty:''}); save(); render();}
+function delExp(j){state.cands[state.ui.sel].exps.splice(j,1); save(); render();}
+function updExp(j,f,v){state.cands[state.ui.sel].exps[j][f]=v; save();}
+
+/* ============ TAB 3: ASSESSMENT ============ */
+function totalScore(c){
+  let sumW=0,acc=0,complete=true;
+  DIMS.forEach(d=>{const w=Number(state.job.weights[d.key])||0; sumW+=w;
+    const s=c.scores[d.key]; if(s==null||s==='')complete=false; else acc+=(Number(s)/100)*w;});
+  if(!complete)return null;
+  return sumW>0?Math.round(acc/sumW*100):null;
+}
+function viewAssess(){
+  if(!state.cands.length)return `<div class="card"><p class="muted">Tambahkan kandidat terlebih dahulu di Tab 2.</p></div>`;
+  const c=state.cands[state.ui.sel];
+  const t=totalScore(c);
+  const dimBoxes=DIMS.map(d=>`<div class="dim-box">
+    <b>${d.label}</b> <span class="muted">(bobot ${state.job.weights[d.key]})</span>
+    <div class="row" style="margin-top:5px">
+      <div style="flex:0 0 130px"><label>Skor 0–100</label><input type="number" min="0" max="100" value="${c.scores[d.key]??''}" onchange="updScore('${d.key}',this.value)"></div>
+      <div><label>Bukti / Justifikasi (wajib untuk skor material)</label><input type="text" value="${esc(c.justs[d.key]||'')}" onchange="updJust('${d.key}',this.value)" placeholder="Kutip bukti dari CV..."></div>
+    </div></div>`).join('');
+  const reqs=state.job.reqs.map((r,i)=>{
+    const st=c.reqs[r.id]||{status:'',note:''};
+    return `<tr><td>${r.mand?'<span class="pill p-bad">WAJIB</span>':'<span class="pill p-info">Preferensi</span>'} ${esc(r.text)}</td>
+      <td style="width:190px"><select onchange="setReq('${r.id}','status',this.value)"><option value="">— pilih —</option>
+        ${REQ_STATUS.map(s=>`<option ${st.status===s?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td><input type="text" value="${esc(st.note||'')}" onchange="setReq('${r.id}','note',this.value)" placeholder="Catatan bukti / rekomendasi verifikasi..."></td></tr>`;}).join('');
+  const audit=AUDIT_ITEMS.map((a,i)=>`<label class="chk"><input type="checkbox" ${c.audit[i]?'checked':''} onchange="toggleAudit(${i})"> ${a}</label>`).join('');
+  return `<div class="card">
+    <div class="row" style="align-items:flex-end">
+      <div><label>Kandidat yang dinilai</label><select onchange="selCand(Number(this.value))">
+        ${state.cands.map((x,i)=>`<option value="${i}" ${i===state.ui.sel?'selected':''}>${esc(x.name)||('Kandidat '+(i+1))}</option>`).join('')}</select></div>
+      <div style="flex:0 0 200px;text-align:right"><span class="muted">SKOR TOTAL</span><br><span class="score-total" id="totScore">${t==null?'—':t+' / 100'}</span>
+        ${t!=null?(()=>{const b=bandOf(t);return ` <span class="pill ${b[1]}">${b[0]}</span>`;})():''}</div>
+    </div>
+  </div>
+  <div class="card"><h2>Skor per Dimensi (hanya beri poin yang didukung bukti)</h2>${dimBoxes}</div>
+  <div class="card"><h2>Penilaian Kualifikasi</h2>
+    ${state.job.reqs.length?`<table><thead><tr><th>Kualifikasi</th><th>Status</th><th>Bukti / Catatan</th></tr></thead><tbody>${reqs}</tbody></table>`
+      :'<p class="muted">Belum ada kualifikasi di Tab 1.</p>'}
+  </div>
+  <div class="card"><h2>Kepercayaan Bukti &amp; Ketidakpastian</h2>
+    <div class="row">
+      <div style="flex:0 0 220px"><label>Tingkat Kepercayaan Bukti</label><select onchange="updCand('confidence',this.value)">
+        <option value="">— pilih —</option>${['TINGGI','SEDANG','RENDAH'].map(s=>`<option ${c.confidence===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div><label>Ketidakpastian Utama (apa yang harus diverifikasi)</label><input type="text" value="${esc(c.uncert)}" onchange="updCand('uncert',this.value)"></div>
+    </div>
+    ${c.confidence==='RENDAH'?'<div class="note">Skor dengan kepercayaan bukti RENDAH wajib ditandai untuk verifikasi sebelum keputusan.</div>':''}
+  </div>
+  <div class="card"><h2>Audit Skeptis (centang setiap pernyataan yang telah dijawab JUJUR — semua harus dicentang)</h2>${audit}</div>
+  <div class="card"><h2>Pertanyaan Wawancara Targeted (maks. 5, fokus verifikasi)</h2>
+    <textarea style="min-height:100px" onchange="updCand('interview',this.value)" placeholder="1. ...&#10;2. ...">${esc(c.interview)}</textarea>
+  </div>`;
+}
+function updScore(k,v){const c=state.cands[state.ui.sel]; c.scores[k]=v===''?'':Math.max(0,Math.min(100,Number(v))); save();
+  const t=totalScore(c); const el=document.getElementById('totScore');
+  if(el)el.innerHTML=(t==null?'—':t+' / 100')+(t!=null?(()=>{const b=bandOf(t);return ` <span class="pill ${b[1]}">${b[0]}</span>`;})():'');}
+function updJust(k,v){state.cands[state.ui.sel].justs[k]=v; save();}
+function setReq(id,f,v){const c=state.cands[state.ui.sel]; if(!c.reqs[id])c.reqs[id]={status:'',note:''}; c.reqs[id][f]=v; save();}
+function toggleAudit(i){const c=state.cands[state.ui.sel]; c.audit[i]=!c.audit[i]; save();}
+
+/* ============ TAB 4: RESULTS ============ */
+function gateInfo(c){
+  const fails=[],vers=[],unrec=[];
+  state.job.reqs.forEach(r=>{if(!r.mand)return; const s=(c.reqs[r.id]||{}).status;
+    if(s==='TERKONFIRASI TIDAK MEMENUHI')fails.push(r.text);
+    else if(s==='PERLU VERIFIKASI')vers.push(r.text);
+    else if(!s||s==='TIDAK TEREKAM')unrec.push(r.text);});
+  return{fails,vers,unrec};
+}
+function recommend(c){
+  const t=totalScore(c); const g=gateInfo(c);
+  if(g.fails.length)return['TIDAK LANJUT — syarat wajib tidak terpenuhi','p-bad'];
+  if(t==null)return['TUNDA — penilaian belum lengkap','p-warn'];
+  let rec,b;
+  if(t>=80){rec='WAWANCARA PRIORITAS';b='p-ok';}
+  else if(t>=65){rec='WAWANCARA UNTUK VALIDASI';b='p-info';}
+  else if(t>=50){rec='KANDIDAT KONDISIONAL (telaah gap)';b='p-warn';}
+  else{rec='PRIORITAS RENDAH';b='p-bad';}
+  if(g.vers.length)rec+=' — perlu verifikasi syarat wajib';
+  return[rec,b];
+}
+function viewResults(){
+  if(!state.cands.length)return `<div class="card"><p class="muted">Belum ada kandidat.</p></div>`;
+  const rows=state.cands.map((c,i)=>({c,i,t:totalScore(c)})).sort((a,b)=>(b.t??-1)-(a.t??-1));
+  const trs=rows.map((r,n)=>{const g=gateInfo(r.c); const rec=recommend(r.c); const b=r.t!=null?bandOf(r.t):['—','p-info'];
+    return `<tr><td>${n+1}</td><td><b>${esc(r.c.name)||('Kandidat '+(r.i+1))}</b></td>
+      <td>${r.t==null?'—':r.t}</td><td><span class="pill ${b[1]}">${b[0]}</span></td>
+      <td>${r.c.confidence||'—'}</td>
+      <td>${g.fails.length?'<span class="pill p-bad">Gagal syarat wajib</span>':g.vers.length?'<span class="pill p-warn">Perlu verifikasi</span>':g.unrec.length?'<span class="pill p-info">Belum dinilai</span>':'<span class="pill p-ok">Bersih</span>'}</td>
+      <td><span class="pill ${rec[1]}">${rec[0]}</span></td>
+      <td class="muted">${esc(r.c.uncert)||'—'}</td></tr>`;}).join('');
+  const nHigh=state.cands.filter(c=>{const t=totalScore(c);return t!=null&&t>=80&&!gateInfo(c).fails.length;}).length;
+  return `<div class="card">
+    <h2>Ringkasan Eksekutif</h2>
+    <p class="muted">Posisi: <b>${esc(state.job.title)||'—'}</b> · Kandidat dinilai: <b>${state.cands.length}</b> · Prioritas tinggi: <b>${nHigh}</b></p>
+    <p class="muted" style="margin-top:6px">Interpretasi skor: 80–100 Prioritas Tinggi · 65–79 Wawancara Validasi · 50–64 Kondisional · &lt;50 Prioritas Rendah. Skor adalah panduan prioritas, bukan prediksi ilmiah kinerja.</p>
+  </div>
+  <div class="card">
+    <h2>Tabel Perbandingan Kandidat</h2>
+    <table><thead><tr><th>#</th><th>Kandidat</th><th>Skor</th><th>Interpretasi</th><th>Kepercayaan</th><th>Syarat Wajib</th><th>Rekomendasi</th><th>Ketidakpastian Utama</th></tr></thead>
+    <tbody>${trs}</tbody></table>
+  </div>
+  <div class="toolbar no-print">
+    <button class="btn ok" onclick="exportCSV()">Export CSV</button>
+    <button class="btn sec" onclick="exportJSON()">Backup Data (JSON)</button>
+    <button class="btn sec" onclick="document.getElementById('impFile').click()">Pulihkan Data (JSON)</button>
+    <input type="file" id="impFile" class="hidden" accept=".json" onchange="importJSON(event)">
+    <button class="btn" onclick="printReport()">Cetak Laporan</button>
+  </div>`;
+}
+function exportCSV(){
+  let csv='Nama;Usia;Pendidikan;Skor;Interpretasi;Kepercayaan;SyaratWajib;Rekomendasi;Ketidakpastian\n';
+  state.cands.forEach(c=>{const t=totalScore(c);const g=gateInfo(c);const rec=recommend(c);const b=t!=null?bandOf(t)[0]:'Belum lengkap';
+    csv+=`"${c.name}";"${c.age}";"${c.edu}";${t??''};"${b}";"${c.confidence}";"${g.fails.length?'Gagal':g.vers.length?'Perlu verifikasi':'OK'}";"${rec[0]}";"${c.uncert}"\n`;});
+  download(new Blob(['\ufeff'+csv],{type:'text/csv'}),'hasil_screening.csv');
+}
+function exportJSON(){download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'backup_screening.json');}
+function importJSON(ev){const f=ev.target.files[0]; if(!f)return; const r=new FileReader();
+  r.onload=e=>{try{const p=JSON.parse(e.target.result); if(!p.job||!p.cands)throw 0;
+    state=p; DIMS.forEach(d=>{if(state.job.weights[d.key]==null)state.job.weights[d.key]=d.w;});
+    save(); render(); alert('Data dipulihkan.');}catch(x){alert('File tidak valid.');}}; r.readAsText(f);}
+function download(blob,name){const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);}
+function printReport(){
+  const rows=state.cands.map((c,i)=>({c,i,t:totalScore(c)})).sort((a,b)=>(b.t??-1)-(a.t??-1));
+  let h=`<h1>Laporan Screening — ${esc(state.job.title)||'(posisi belum diisi)'}</h1>
+  <p>Tujuan peran: ${esc(state.job.purpose)||'—'} · Dicetak: ${new Date().toLocaleString('id-ID')}</p>
+  <h2>Tabel Perbandingan</h2><table border="1" cellspacing="0" cellpadding="5">
+  <tr><th>#</th><th>Kandidat</th><th>Skor</th><th>Interpretasi</th><th>Kepercayaan</th><th>Syarat Wajib</th><th>Rekomendasi</th></tr>`;
+  rows.forEach((r,n)=>{const g=gateInfo(r.c);const rec=recommend(r.c);const b=r.t!=null?bandOf(r.t)[0]:'Belum lengkap';
+    h+=`<tr><td>${n+1}</td><td>${esc(r.c.name)}</td><td>${r.t??'—'}</td><td>${b}</td><td>${r.c.confidence||'—'}</td>
+    <td>${g.fails.length?'Gagal: '+esc(g.fails.join('; ')):g.vers.length?'Perlu verifikasi: '+esc(g.vers.join('; ')):'OK'}</td><td>${rec[0]}</td></tr>`;});
+  h+='</table>';
+  rows.forEach((r,n)=>{const c=r.c;const g=gateInfo(r.c);
+    h+=`<h2>${n+1}. ${esc(c.name)||'Kandidat '+(r.i+1)} — Skor ${r.t??'—'}</h2>
+    <p><b>Pendidikan:</b> ${esc(c.edu)||'—'} · <b>Usia:</b> ${esc(c.age)||'—'}</p>
+    <p><b>Pengalaman:</b></p><ul>${c.exps.map(e=>`<li><b>${esc(e.title)}</b>, ${esc(e.co)} (${esc(e.per)}): ${esc(e.duty)}</li>`).join('')||'<li>—</li>'}</ul>
+    <p><b>Justifikasi skor:</b></p><ul>${DIMS.map(d=>`<li>${d.label}: ${c.scores[d.key]??'—'}/100 — ${esc(c.justs[d.key]||'tanpa justifikasi')}</li>`).join('')}</ul>
+    <p><b>Kualifikasi wajib bermasalah:</b> ${g.fails.concat(g.vers).map(esc).join('; ')||'—'}</p>
+    <p><b>Ketidakpastian utama:</b> ${esc(c.uncert)||'—'}</p>
+    <p><b>Pertanyaan wawancara:</b><br>${esc(c.interview).replace(/\n/g,'<br>')||'—'}</p>`;});
+  document.getElementById('printArea').innerHTML=h;
+  window.print();
+}
+
+load(); render();
+</script>
+</body>
+</html>
