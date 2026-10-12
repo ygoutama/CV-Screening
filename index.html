@@ -65,19 +65,19 @@
   }
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <header>
   <h1>YG Contextual CV Screening Intelligence™</h1>
-  <p>Aplikasi Pendukung Keputusan Penyaringan Kandidat — Upload Jobdesk &amp; CV (DOCX/PDF/XLSX/TXT), ekstraksi otomatis offline, penilaian berbasis bukti. Data tersimpan lokal di browser.</p>
+  <p>Aplikasi Pendukung Keputusan Penyaringan Kandidat — Upload Jobdesk &amp; CV (DOCX/PDF/XLSX/TXT), ekstraksi otomatis offline, hasil screening (lolos/tidak) langsung tampil otomatis — tetap dapat diverifikasi manual. Data tersimpan lokal di browser.</p>
 </header>
 
 <div class="wrap">
 <nav class="tabs no-print">
   <button id="tb1" class="active" onclick="setTab(1)">1. Pengaturan Jabatan</button>
   <button id="tb2" onclick="setTab(2)">2. Data Kandidat</button>
-  <button id="tb3" onclick="setTab(3)">3. Penilaian</button>
-  <button id="tb4" onclick="setTab(4)">4. Hasil &amp; Laporan</button>
+  <button id="tb3" onclick="setTab(3)">3. Penilaian &amp; Hasil</button>
 </nav>
 
 <div id="tabContent"></div>
@@ -127,7 +127,7 @@ function load(){
   try{const s=localStorage.getItem(LS_KEY); if(s){const p=JSON.parse(s);
     state.job=Object.assign({title:'',purpose:'',reqs:[],weights:{},jdFile:null,jdText:'',jdMode:'upload'},p.job||{});
     DIMS.forEach(d=>{if(state.job.weights[d.key]==null)state.job.weights[d.key]=d.w;});
-    state.cands=p.cands||[]; state.ui=Object.assign({tab:1,sel:0,showSug:false},p.ui||{});}}catch(e){}
+    state.cands=p.cands||[]; state.ui=Object.assign({tab:1,sel:0,showSug:false},p.ui||{}); state.ui.tab=Math.min(3,Math.max(1,state.ui.tab||1));}}catch(e){}
 }
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function bandOf(s){ if(s>=80)return['Prioritas Tinggi','p-ok']; if(s>=65)return['Wawancara Validasi','p-info']; if(s>=50)return['Kandidat Kondisional','p-warn']; return['Prioritas Rendah','p-bad']; }
@@ -253,6 +253,52 @@ async function extractFile(file){
   if(['jpg','jpeg','png','webp','gif','bmp'].includes(ext)) return {fmt:ext.toUpperCase(),status:'UNVERIFIED',text:'',note:'Gambar: OCR tidak tersedia offline — lihat gambar, lalu ketik/tempel teks CV-nya pada kolom yang tersedia.',img:await fileToDataURL(file)};
   return {fmt:(ext||'?').toUpperCase(),status:'UNVERIFIED',text:'',note:'Format tidak dikenali.'};
 }
+/* ================= AUTO ASSESSMENT (heuristik kata kunci) ================= */
+const STOPW=new Set(('yang dan di ke dari untuk dengan pada atau adalah ini itu sebagai juga tidak ada dapat akan lebih kurang minimal maksimal tahun serta dalam atas antara sampai agar supaya yakni yaitu tanpa bagi oleh karena jika bila peran kerja jabatan seorang terutama diutamakan syarat kualifikasi').split(' '));
+const SYN={inventaris:['inventaris','inventory','stok'],stok:['stok','inventaris','inventory'],kasir:['kasir','pos','mesin edc'],penjualan:['penjualan','sales','selling','omzet'],target:['target','quota'],kepemimpinan:['memimpin','kepemimpinan','lead','leader','supervisi','koordinasi','tim'],komplain:['komplain','complaint','keluhan'],promosi:['promosi','promotion','marketing'],pendidikan:['pendidikan','sarjana','d3','s1','smk','sma'],pengalaman:['pengalaman','experience'],display:['display','tata letak','merchandising'],laporan:['laporan','report','keuangan']};
+function kwOf(text){
+  const t=(text||'').toLowerCase();
+  const words=t.replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>=3&&!STOPW.has(w));
+  const set=new Set(words);
+  words.forEach(w=>{(SYN[w]||[]).forEach(s=>set.add(s));});
+  return [...set];
+}
+function autoAssess(c){
+  if(c.locked)return;
+  const txt=(((c.cv||'')+' '+(c.skills||'')+' '+c.exps.map(e=>[e.title,e.co,e.duty].join(' ')).join(' '))).toLowerCase();
+  // --- kualifikasi otomatis ---
+  state.job.reqs.forEach(r=>{
+    const kws=kwOf(r.text); if(!kws.length)return;
+    const hits=kws.filter(k=>txt.includes(k));
+    let status,note;
+    if(hits.length>=Math.max(1,Math.ceil(kws.length*0.5))){status='MEMENUHI';note='Kata kunci cocok: '+hits.slice(0,5).join(', ')+' (otomatis)';}
+    else if(hits.length>0){status='PERLU VERIFIKASI';note='Sebagian cocok: '+hits.join(', ')+' — verifikasi manual (otomatis)';}
+    else{status='TIDAK TEREKAM';note='Kata kunci tidak ditemukan di CV (otomatis)';}
+    if(!c.reqs[r.id])c.reqs[r.id]={status:'',note:''};
+    c.reqs[r.id].status=status; c.reqs[r.id].note=note;
+  });
+  // --- skor dimensi otomatis ---
+  const dimTerms={
+    f:['pengalaman','jabatan','posisi','tanggung jawab','bertanggung jawab','menangani','mengelola','memimpin','koordinator','supervisor','manager','kepala','staff'],
+    t:['komunikasi','kerja sama','teamwork','adaptasi','analisis','problem solving','penyelesaian masalah','perencanaan','organisasi'],
+    tech:['excel','sistem','software','aplikasi','kasir','inventaris','stok','laporan','data','operasional','display'],
+    ach:['mencapai','meningkatkan','berhasil','target','penjualan','omzet','prestasi','hasil'],
+    scope:['keputusan','memimpin','tim','bawahan','penjadwalan','evaluasi','koordinasi','cabang','unit'],
+    learn:['pelatihan','training','sertifikasi','pengembangan','kursus','belajar']};
+  DIMS.forEach(d=>{
+    const terms=dimTerms[d.key];
+    const hits=terms.filter(t=>txt.includes(t)).length;
+    const s=Math.max(20,Math.min(100,Math.round(hits/terms.length*160)));
+    c.scores[d.key]=s;
+    c.justs[d.key]='(otomatis) kecocokan kata kunci '+hits+'/'+terms.length+' — verifikasi manual';
+  });
+  if(!c.confidence)c.confidence='SEDANG';
+  if(!c.uncert)c.uncert='Hasil deteksi otomatis dari kecocokan kata kunci — wajib verifikasi manual sebelum keputusan final.';
+  c.autoGenerated=true;
+}
+function autoAssessAll(){state.cands.forEach(c=>autoAssess(c));}
+function lockManual(){const c=state.cands[state.ui.sel]; if(c){c.locked=true;c.autoGenerated=false;save();render();alert('Penilaian kandidat ini dikunci manual — auto-assessment tidak akan menimpa lagi.');}}
+
 function suggestName(text,fname){
   const lines=(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean).slice(0,25);
   for(const l of lines){ const m=l.match(/^nama\s*[:\-]?\s*(.+)$/i); if(m&&m[1].length>2&&m[1].length<70) return m[1].replace(/\s{2,}/g,' ').trim(); }
@@ -267,6 +313,8 @@ async function handleJDUpload(ev){
   state.job.jdFile={name:f.name,fmt:r.fmt,status:r.status,note:r.note||''};
   state.job.jdText=r.text||'';
   if(r.img) IMG_CACHE['job']=r.img;
+  autoAssessAll();
+  if(state.cands.length)state.ui.tab=3;
   save(); render();
 }
 async function handleCVUpload(ev){
@@ -278,21 +326,22 @@ async function handleCVUpload(ev){
     c.file={name:f.name,fmt:r.fmt,status:r.status,note:(r.note||'')+(dup?' — KEMUNGKINAN DUPLIKAT (nama file sama sudah ada).':'')};
     c.cv=r.text||''; c.name=suggestName(r.text,f.name);
     if(r.img) IMG_CACHE[c.id]=r.img;
+    autoAssess(c);
     state.cands.push(c);
   }
   state.ui.sel=state.cands.length-1;
+  state.ui.tab=3;
   save(); render();
 }
 
 /* ================= NAV / RENDER ================= */
 function setTab(n){state.ui.tab=n; save(); render();}
 function render(){
-  [1,2,3,4].forEach(i=>document.getElementById('tb'+i).classList.toggle('active', state.ui.tab===i));
+  [1,2,3].forEach(i=>document.getElementById('tb'+i).classList.toggle('active', state.ui.tab===i));
   const c=document.getElementById('tabContent');
   if(state.ui.tab===1)c.innerHTML=viewJob();
   else if(state.ui.tab===2)c.innerHTML=viewCands();
-  else if(state.ui.tab===3)c.innerHTML=viewAssess();
-  else c.innerHTML=viewResults();
+  else c.innerHTML=viewAssess();
 }
 
 /* ============ TAB 1: JOB SETUP ============ */
@@ -483,6 +532,16 @@ function viewAssess(){
   if(!state.cands.length)return `<div class="card"><p class="muted">Upload CV kandidat terlebih dahulu di Tab 2.</p></div>`;
   const c=state.cands[state.ui.sel];
   const t=totalScore(c);
+  const g0=gateInfo(c);
+  const rec0=recommend(c);
+  const borderCol=g0.fails.length?'var(--bad)':(t==null||g0.vers.length||g0.unrec.length)?'var(--warn)':'var(--ok)';
+  const verdictHtml=g0.fails.length
+    ? '<span style="color:var(--bad);font-size:22px;font-weight:800">&#10007; TIDAK LOLOS</span> <span class="pill p-bad">'+esc(rec0[0])+'</span>'
+    : t==null
+      ? '<span style="color:var(--warn);font-size:22px;font-weight:800">&#9203; PENILAIAN BELUM LENGKAP</span>'
+      : (g0.vers.length||g0.unrec.length)
+        ? '<span style="color:var(--warn);font-size:22px;font-weight:800">&#10003; LOLOS BERSYARAT</span> <span class="pill '+rec0[1]+'">'+esc(rec0[0])+'</span>'
+        : '<span style="color:var(--ok);font-size:22px;font-weight:800">&#10003; LOLOS</span> <span class="pill '+rec0[1]+'">'+esc(rec0[0])+'</span>';
   const dimBoxes=DIMS.map(d=>`<div class="dim-box">
     <b>${d.label}</b> <span class="muted">(bobot ${state.job.weights[d.key]})</span>
     <div class="row" style="margin-top:5px">
@@ -496,7 +555,9 @@ function viewAssess(){
         ${REQ_STATUS.map(s=>`<option ${st.status===s?'selected':''}>${s}</option>`).join('')}</select></td>
       <td><input type="text" value="${esc(st.note||'')}" onchange="setReq('${r.id}','note',this.value)" placeholder="Catatan bukti / rekomendasi verifikasi..."></td></tr>`;}).join('');
   const audit=AUDIT_ITEMS.map((a,i)=>`<label class="chk"><input type="checkbox" ${c.audit[i]?'checked':''} onchange="toggleAudit(${i})"> ${a}</label>`).join('');
-  return `<div class="card">
+  return `<div class="card" style="border:2px solid ${borderCol}">
+    <h2>Hasil Screening &mdash; ${esc(c.name)||('Kandidat '+(state.ui.sel+1))} ${c.autoGenerated?' <span class="pill p-info">HASIL OTOMATIS &mdash; verifikasi manual</span>':''} ${c.locked?' <span class="pill p-warn">DIKUNCI MANUAL</span>':''}</h2>
+    <div style="margin:2px 0 10px">${verdictHtml}</div>
     <div class="row" style="align-items:flex-end">
       <div><label>Kandidat yang dinilai</label><select onchange="selCand(Number(this.value))">
         ${state.cands.map((x,i)=>`<option value="${i}" ${i===state.ui.sel?'selected':''}>${esc(x.name)||('Kandidat '+(i+1))}</option>`).join('')}</select></div>
@@ -521,6 +582,40 @@ function viewAssess(){
   <div class="card"><h2>Audit Skeptis (semua harus dicentang sebelum rekomendasi final)</h2>${audit}</div>
   <div class="card"><h2>Pertanyaan Wawancara Targeted (maks. 5, fokus verifikasi)</h2>
     <textarea style="min-height:100px" onchange="updCand('interview',this.value)" placeholder="1. ...&#10;2. ...">${esc(c.interview)}</textarea>
+  </div>
+  ${viewResultsInline()}`;
+}
+
+function viewResultsInline(){
+  const rows=state.cands.map((c,i)=>({c,i,t:totalScore(c)})).sort((a,b)=>(b.t??-1)-(a.t??-1));
+  const trs=rows.map((r,n)=>{const g=gateInfo(r.c); const rec=recommend(r.c); const b=r.t!=null?bandOf(r.t):['—','p-info'];
+    const verdict=g.fails.length?'<span class="pill p-bad">TIDAK LOLOS</span>':(g.vers.length||g.unrec.length)?'<span class="pill p-warn">LOLOS BERSYARAT</span>':'<span class="pill p-ok">LOLOS</span>';
+    return `<tr><td>${n+1}</td><td><b>${esc(r.c.name)||('Kandidat '+(r.i+1))}</b></td>
+      <td>${verdict}</td>
+      <td>${r.t==null?'—':r.t}</td><td><span class="pill ${b[1]}">${b[0]}</span></td>
+      <td>${r.c.confidence||'—'}</td>
+      <td>${g.fails.length?'<span class="pill p-bad">Gagal syarat wajib</span>':g.vers.length?'<span class="pill p-warn">Perlu verifikasi</span>':g.unrec.length?'<span class="pill p-info">Belum dinilai</span>':'<span class="pill p-ok">Bersih</span>'}</td>
+      <td><span class="pill ${rec[1]}">${rec[0]}</span></td>
+      <td class="muted">${esc(r.c.uncert)||'—'}</td></tr>`;}).join('');
+  const nHigh=state.cands.filter(c=>{const t=totalScore(c);return t!=null&&t>=80&&!gateInfo(c).fails.length;}).length;
+  const nUnv=state.cands.filter(c=>c.file&&c.file.status==='UNVERIFIED').length;
+  return `<div class="card">
+    <h2>Ringkasan Eksekutif</h2>
+    <p class="muted">Posisi: <b>${esc(state.job.title)||'—'}</b> · Kandidat: <b>${state.cands.length}</b> · Prioritas tinggi: <b>${nHigh}</b> · Berkas UNVERIFIED: <b>${nUnv}</b>${nUnv?' (bukan bukti ketidaklayakan — perlu verifikasi manual)':''}</p>
+    <p class="muted" style="margin-top:6px">Interpretasi skor: 80–100 Prioritas Tinggi · 65–79 Wawancara Validasi · 50–64 Kondisional · &lt;50 Prioritas Rendah. Skor adalah panduan prioritas, bukan prediksi ilmiah kinerja.</p>
+  </div>
+  <div class="card">
+    <h2>Tabel Perbandingan Kandidat</h2>
+    <table><thead><tr><th>#</th><th>Kandidat</th><th>Hasil</th><th>Skor</th><th>Interpretasi</th><th>Kepercayaan</th><th>Syarat Wajib</th><th>Rekomendasi</th><th>Ketidakpastian Utama</th></tr></thead>
+    <tbody>${trs}</tbody></table>
+  </div>
+  <div class="toolbar no-print">
+    <button class="btn sec" onclick="lockManual()">Kunci Penilaian Manual (hentikan auto)</button>
+    <button class="btn" onclick="autoAssessAll();save();render()">Jalankan Ulang Auto-Assessment</button>
+    <button class="btn ok" onclick="exportCSV()">Export CSV</button>
+    <button class="btn sec" onclick="exportJSON()">Backup Data (JSON)</button>
+    <button class="btn sec" onclick="document.getElementById('impFile').click()">Pulihkan Data (JSON)</button>
+    <button class="btn" onclick="printReport()">Cetak Laporan</button>
   </div>`;
 }
 function updScore(k,v){const c=state.cands[state.ui.sel]; c.scores[k]=v===''?'':Math.max(0,Math.min(100,Number(v))); save();
@@ -550,36 +645,6 @@ function recommend(c){
   else{rec='PRIORITAS RENDAH';b='p-bad';}
   if(g.vers.length)rec+=' — perlu verifikasi syarat wajib';
   return[rec,b];
-}
-function viewResults(){
-  if(!state.cands.length)return `<div class="card"><p class="muted">Belum ada kandidat.</p></div>`;
-  const rows=state.cands.map((c,i)=>({c,i,t:totalScore(c)})).sort((a,b)=>(b.t??-1)-(a.t??-1));
-  const trs=rows.map((r,n)=>{const g=gateInfo(r.c); const rec=recommend(r.c); const b=r.t!=null?bandOf(r.t):['—','p-info'];
-    return `<tr><td>${n+1}</td><td><b>${esc(r.c.name)||('Kandidat '+(r.i+1))}</b></td>
-      <td>${r.t==null?'—':r.t}</td><td><span class="pill ${b[1]}">${b[0]}</span></td>
-      <td>${r.c.confidence||'—'}</td>
-      <td>${g.fails.length?'<span class="pill p-bad">Gagal syarat wajib</span>':g.vers.length?'<span class="pill p-warn">Perlu verifikasi</span>':g.unrec.length?'<span class="pill p-info">Belum dinilai</span>':'<span class="pill p-ok">Bersih</span>'}</td>
-      <td><span class="pill ${rec[1]}">${rec[0]}</span></td>
-      <td class="muted">${esc(r.c.uncert)||'—'}</td></tr>`;}).join('');
-  const nHigh=state.cands.filter(c=>{const t=totalScore(c);return t!=null&&t>=80&&!gateInfo(c).fails.length;}).length;
-  const nUnv=state.cands.filter(c=>c.file&&c.file.status==='UNVERIFIED').length;
-  return `<div class="card">
-    <h2>Ringkasan Eksekutif</h2>
-    <p class="muted">Posisi: <b>${esc(state.job.title)||'—'}</b> · File/kandidat: <b>${state.cands.length}</b> · Prioritas tinggi: <b>${nHigh}</b> · Berkas UNVERIFIED: <b>${nUnv}</b>${nUnv?' (bukan bukti ketidaklayakan — perlu verifikasi manual)':''}</p>
-    <p class="muted" style="margin-top:6px">Interpretasi skor: 80–100 Prioritas Tinggi · 65–79 Wawancara Validasi · 50–64 Kondisional · &lt;50 Prioritas Rendah. Skor adalah panduan prioritas, bukan prediksi ilmiah kinerja.</p>
-  </div>
-  <div class="card"><h2>Register File &amp; Kandidat</h2>${registerTable()}</div>
-  <div class="card">
-    <h2>Tabel Perbandingan Kandidat</h2>
-    <table><thead><tr><th>#</th><th>Kandidat</th><th>Skor</th><th>Interpretasi</th><th>Kepercayaan</th><th>Syarat Wajib</th><th>Rekomendasi</th><th>Ketidakpastian Utama</th></tr></thead>
-    <tbody>${trs}</tbody></table>
-  </div>
-  <div class="toolbar no-print">
-    <button class="btn ok" onclick="exportCSV()">Export CSV</button>
-    <button class="btn sec" onclick="exportJSON()">Backup Data (JSON)</button>
-    <button class="btn sec" onclick="document.getElementById('impFile').click()">Pulihkan Data (JSON)</button>
-    <button class="btn" onclick="printReport()">Cetak Laporan</button>
-  </div>`;
 }
 function exportCSV(){
   let csv='Nama;Usia;Pendidikan;File;Format;StatusEkstraksi;Skor;Interpretasi;Kepercayaan;SyaratWajib;Rekomendasi;Ketidakpastian\n';
